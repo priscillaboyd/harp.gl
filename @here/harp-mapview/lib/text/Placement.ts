@@ -216,12 +216,26 @@ function computePointTextOffset(
     offset.x = textElement.xOffset;
     offset.y = textElement.yOffset;
 
+    switch (placement.h) {
+        case HorizontalPlacement.Left:
+            // In practice applies: -= pointLabelMargin.x
+            offset.x += textElement.bounds!.max.x;
+            break;
+        case HorizontalPlacement.Right:
+            // Applies: += pointLabelMargin.x
+            offset.x -= textElement.bounds!.min.x;
+            break;
+    }
     switch (placement.v) {
         case VerticalPlacement.Top:
             offset.y -= textElement.bounds!.min.y;
             break;
         case VerticalPlacement.Center:
             offset.y -= 0.5 * (textElement.bounds!.max.y + textElement.bounds!.min.y);
+            break;
+        case VerticalPlacement.Bottom:
+            // Applies: -= pointLabelMargin.y
+            offset.y -= textElement.bounds!.max.y;
             break;
     }
 
@@ -617,6 +631,8 @@ function placePointLabelAtAnchor(
         tmpMeasurementParams.letterCaseArray = label.glyphCaseArray!;
         // Compute label bounds according to layout settings.
         textCanvas.measureText(label.glyphs!, label.bounds, tmpMeasurementParams);
+        // TODO: Make the margin configurable
+        label.bounds.expandByVector(pointLabelMargin);
     }
 
     // Compute text offset from the anchor point
@@ -625,10 +641,6 @@ function placePointLabelAtAnchor(
     tmpBox.copy(label.bounds!);
     tmpBox.min.multiplyScalar(scale);
     tmpBox.max.multiplyScalar(scale);
-    // Add margin after scaling, this ensures the margin is consistent across all
-    // labels - regardless of distance scaling (or any other) factor.
-    // TODO: Make the margin configurable
-    tmpBox.expandByVector(pointLabelMargin);
     tmpBox.translate(textOffset);
     tmp2DBox.set(
         tmpBox.min.x,
