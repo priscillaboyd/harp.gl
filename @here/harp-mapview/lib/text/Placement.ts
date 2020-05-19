@@ -306,6 +306,8 @@ const tmpCollisionBox = new CollisionBox();
 const tmpScreenPosition = new THREE.Vector2();
 const tmpTextOffset = new THREE.Vector2();
 const tmp2DBox = new Math2D.Box();
+const tmpCenter = new THREE.Vector2();
+const tmpSize = new THREE.Vector2();
 const pointLabelMargin = new THREE.Vector2(4, 2);
 
 export enum PlacementResult {
@@ -353,6 +355,8 @@ export function placeIcon(
  * @param labelState State of the point label to place.
  * @param screenPosition Position of the label in screen coordinates.
  * @param scale Scale factor to be applied to label dimensions.
+ * @param maxPlanarScale Scale factor that may be applied when label is at maximum co-planar,
+ * but still visible distance - at edge of the screen.
  * @param textCanvas The text canvas where the label will be placed.
  * @param env The [[Env]] used to evaluate technique attributes.
  * @param screenCollisions Used to check collisions with other labels.
@@ -372,6 +376,7 @@ export function placePointLabel(
     labelState: TextElementState,
     screenPosition: THREE.Vector2,
     scale: number,
+    maxPlanarScale: number,
     textCanvas: TextCanvas,
     env: Env,
     screenCollisions: ScreenCollisions,
@@ -398,6 +403,7 @@ export function placePointLabel(
             labelState,
             screenPosition,
             scale,
+            maxPlanarScale,
             textCanvas,
             env,
             screenCollisions,
@@ -411,6 +417,7 @@ export function placePointLabel(
             labelState,
             screenPosition,
             scale,
+            maxPlanarScale,
             textCanvas,
             env,
             screenCollisions,
@@ -428,6 +435,8 @@ export function placePointLabel(
  * @param labelState State of the point label to place.
  * @param screenPosition Position of the label in screen coordinates.
  * @param scale Scale factor to be applied to label dimensions.
+ * @param maxPlanarScale Scale factor that may be applied when label is at maximum co-planar,
+ * but still visible distance - at edge of the screen.
  * @param textCanvas The text canvas where the label will be placed.
  * @param env The [[Env]] used to evaluate technique attributes.
  * @param screenCollisions Used to check collisions with other labels.
@@ -443,6 +452,7 @@ function placePointLabelChoosingAnchor(
     labelState: TextElementState,
     screenPosition: THREE.Vector2,
     scale: number,
+    maxPlanarScale: number,
     textCanvas: TextCanvas,
     env: Env,
     screenCollisions: ScreenCollisions,
@@ -479,6 +489,7 @@ function placePointLabelChoosingAnchor(
             screenPosition,
             anchorPlacement,
             scale,
+            maxPlanarScale,
             textCanvas,
             env,
             screenCollisions,
@@ -534,6 +545,8 @@ function placePointLabelChoosingAnchor(
  * @param labelState State of the point label to place.
  * @param screenPosition Position of the label in screen coordinates.
  * @param scale Scale factor to be applied to label dimensions.
+ * @param maxPlanarScale Scale factor that may be applied when label is at maximum co-planar,
+ * but still visible distance - at edge of the screen.
  * @param textCanvas The text canvas where the label will be placed.
  * @param env The [[Env]] used to evaluate technique attributes.
  * @param screenCollisions Used to check collisions with other labels.
@@ -551,6 +564,7 @@ function placePointLabelAtCurrentAnchor(
     labelState: TextElementState,
     screenPosition: THREE.Vector2,
     scale: number,
+    maxPlanarScale: number,
     textCanvas: TextCanvas,
     env: Env,
     screenCollisions: ScreenCollisions,
@@ -566,6 +580,7 @@ function placePointLabelAtCurrentAnchor(
         screenPosition,
         lastPlacement,
         scale,
+        maxPlanarScale,
         textCanvas,
         env,
         screenCollisions,
@@ -584,6 +599,8 @@ function placePointLabelAtCurrentAnchor(
  * @param screenPosition Position of the label in screen coordinates
  * @param placement Text placement relative to the label position.
  * @param scale Scale factor to be applied to label dimensions.
+ * @param maxPlanarScale Scale factor that may be applied when label is at maximum co-planar,
+ * but still visible distance - at edge of the screen.
  * @param textCanvas The text canvas where the label will be placed.
  * @param env The [[Env]] used to evaluate technique attributes.
  * @param screenCollisions Used to check collisions with other labels.
@@ -604,6 +621,7 @@ function placePointLabelAtAnchor(
     screenPosition: THREE.Vector2,
     placement: TextPlacement,
     scale: number,
+    maxPlanarScale: number,
     textCanvas: TextCanvas,
     env: Env,
     screenCollisions: ScreenCollisions,
@@ -639,9 +657,21 @@ function placePointLabelAtAnchor(
     const textOffset = computePointTextOffset(label, placement, scale, env, tmpTextOffset);
     textOffset.add(screenPosition);
     tmpBox.copy(label.bounds!);
-    tmpBox.min.multiplyScalar(scale);
-    tmpBox.max.multiplyScalar(scale);
+    tmpBox.getCenter(tmpCenter);
+    tmpBox.getSize(tmpSize);
+    if (measureText) {
+        // New label padding/margin is applied only for the first time it is placed.
+        // This margin compensates the changes of label bounds due to distance scaling and
+        // it is designed to cover only size changes due to camera panning (not tilt).
+        // This ways label "reserves" enough space so it may "grow" without affecting other
+        // labels, no collisions occurs and thus limits labels flickering on pan.
+        tmpSize.multiplyScalar(maxPlanarScale * 1.1);
+    } else {
+        tmpSize.multiplyScalar(scale);
+    }
+    tmpBox.setFromCenterAndSize(tmpCenter, tmpSize);
     tmpBox.translate(textOffset);
+
     tmp2DBox.set(
         tmpBox.min.x,
         tmpBox.min.y,
