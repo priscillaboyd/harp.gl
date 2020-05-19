@@ -665,7 +665,9 @@ function placePointLabelAtAnchor(
         // it is designed to cover only size changes due to camera panning (not tilt).
         // This ways label "reserves" enough space so it may "grow" without affecting other
         // labels, no collisions occurs and thus limits labels flickering on pan.
-        tmpSize.multiplyScalar(maxPlanarScale * 1.1);
+        const imprecisionFactor = 1.1;
+        // Account for imprecisions during calculus - increase the scale by 10%.
+        tmpSize.multiplyScalar(maxPlanarScale * imprecisionFactor);
     } else {
         tmpSize.multiplyScalar(scale);
     }
